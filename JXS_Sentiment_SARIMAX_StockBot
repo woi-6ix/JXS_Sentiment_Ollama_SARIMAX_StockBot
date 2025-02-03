@@ -37,8 +37,11 @@ def get_news_data(ticker):        #function gathers and process news headlines
     news_df = stock.ticker_news() #pulls data into news dataframe
 
     news_df['Title'] = news_df['Title'].str.lower()                   #lowercases title headlines for preprocessing
-    news_df['sentiment'] = news_df['Title'].apply(classify_sentiment) #in sentiment dataframe and apply the classify sentiment function to each row of the news_df
+    news_df['sentiment'] = news_df['Title'].apply(classify_sentiment) #applies the classify_sentiment function to each title in the 'Title' column and stores the result in a new 'sentiment' column
 
     news_df['sentiment'] = news_df['sentiment'].str.upper()           #uppercases sentiment df
     news_df = news_df[news_df['sentiment'] != 'NEUTRAL']              #removes any sentiment that returns NEUTRAL
-    
+    news_df['Date'] = pd.to_datetime(news_df['Date'])                 #Pandas function converts the 'Date' column to datetime format for easier date manipulation
+    news_df['DateOnly'] = news_df['Date'].dt.date                     #creates a new 'DateOnly' column that contains only the date part of the datetime, excluding the time
+
+    return news_df
