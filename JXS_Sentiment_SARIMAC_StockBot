@@ -1,0 +1,44 @@
+#One Stock predictor Involved, however others exist and can help with more accurate prediction
+#Create an AI + ML Pipeline Workflow
+#Finviz allows to pull finance data without paid subscription and stock data from yFinance
+#LLM Classification (Ollama - Open source Meta Llama 3)
+#Create Positive and Neg Artiticle Headlines
+#Finally Create Time Series Model using ARIMAX (Autoregressive Integrated Moving Average) or FBProphet
+#WebAPP run on Streamlit.io
+#Will need to create Local LLM Server Connection from LangChain Community to import Ollama
+
+
+### Libraries & Ollama ###
+
+#pip install yfinance, finvizfinance, statsmodels, plotly, holidays, langchain-community, streamlit, Ollama
+#in terminal, run 'ollama run llama3', will install meta llam3 on latop
+
+import yfinance as yf                                   #gather stock data
+from finvizfinance.quote import finvizfinance           #gather recent stock news article headlines
+from statsmodels.tsa.statespace.sarimax import SARIMAX  #SARIMAX Data Modelling Library, to predict time series forecast
+import plotly.graph_objects as go                       #modelling charts
+import pandas as pd                                     #pandas for finance packages and data manipulation
+import numpy as np
+import holidays                                         #to avoid forecasting on holidays
+from langchain_community.llms import Ollama             #create local LLM server connection
+import streamlit as st                                  #for interactive Web App UI
+llm = Ollama(model='llama3')                            #connect to local Ollama server using Ollama call function, will be using llama3 version
+
+
+### Sentiment Model Functions ###
+
+def classify_sentiment(title):    #function allows to ollama to classify titles as pos, neg, or neu; strip removes any extra spaces
+    sentiment_output = llm.invoke(f"Classify the sentiment as 'POSITIVE' or 'NEGATIVE' or 'NEUTRAL' with just that one only, no additional words or reasoning: {title}")
+    return sentiment_output.strip()
+
+def get_news_data(ticker):        #function gathers and process news headlines
+    
+    stock = finvizfinance(ticker)
+    news_df = stock.ticker_news() #pulls data into news dataframe
+
+    news_df['Title'] = news_df['Title'].str.lower()                   #lowercases title headlines for preprocessing
+    news_df['sentiment'] = news_df['Title'].apply(classify_sentiment) #in sentiment dataframe and apply the classify sentiment function to each row of the news_df
+
+    news_df['sentiment'] = news_df['sentiment'].str.upper()           #uppercases sentiment df
+    news_df = news_df[news_df['sentiment'] != 'NEUTRAL']              #removes any sentiment that returns NEUTRAL
+    
