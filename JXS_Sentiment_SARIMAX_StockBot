@@ -10,6 +10,7 @@
 
 ### Libraries & Ollama ###
 
+
 #pip install yfinance, finvizfinance, statsmodels, plotly, holidays, langchain-community, streamlit, Ollama
 #in terminal, run 'ollama run llama3', will install meta llam3 on latop
 
@@ -27,21 +28,35 @@ llm = Ollama(model='llama3')                            #connect to local Ollama
 
 ### Sentiment Model Functions ###
 
-def classify_sentiment(title):    #function allows to ollama to classify titles as pos, neg, or neu; strip removes any extra spaces
+
+def sentiment_classifier(title):                                              #function allows to ollama to classify titles as pos, neg, or neu; strip removes any extra spaces
     sentiment_output = llm.invoke(f"Classify the sentiment as 'POSITIVE' or 'NEGATIVE' or 'NEUTRAL' with just that one only, no additional words or reasoning: {title}")
     return sentiment_output.strip()
 
-def get_news_data(ticker):        #function gathers and process news headlines
-    
+def news_data(ticker):                                                        #function gathers and process news headlines
     stock = finvizfinance(ticker)
-    news_df = stock.ticker_news() #pulls data into news dataframe
+    stknews_df = stock.ticker_news()                                          #pulls data into news dataframe
 
-    news_df['Title'] = news_df['Title'].str.lower()                   #lowercases title headlines for preprocessing
-    news_df['sentiment'] = news_df['Title'].apply(classify_sentiment) #applies the classify_sentiment function to each title in the 'Title' column and stores the result in a new 'sentiment' column
+    stknews_df['Title'] = stknews_df['Title'].str.lower()                     #lowercases title headlines for preprocessing
+    stknews_df['sentiment'] = stknews_df['Title'].apply(sentiment_classifier) #applies the classify_sentiment function to each title in the 'Title' column and stores the result in a new 'sentiment' column
 
-    news_df['sentiment'] = news_df['sentiment'].str.upper()           #uppercases sentiment df
-    news_df = news_df[news_df['sentiment'] != 'NEUTRAL']              #removes any sentiment that returns NEUTRAL
-    news_df['Date'] = pd.to_datetime(news_df['Date'])                 #Pandas function converts the 'Date' column to datetime format for easier date manipulation
-    news_df['DateOnly'] = news_df['Date'].dt.date                     #creates a new 'DateOnly' column that contains only the date part of the datetime, excluding the time
+    stknews_df['sentiment'] = stknews_df['sentiment'].str.upper()             #uppercases sentiment df
+    stknews_df = stknews_df[stknews_df['sentiment'] != 'NEUTRAL']             #removes any sentiment that returns NEUTRAL, as they are not useful
+    stknews_df['Date'] = pd.to_datetime(stknews_df['Date'])                   #Pandas function converts the 'Date' column to datetime format for easier date manipulation
+    stknews_df['DateOnly'] = stknews_df['Date'].dt.date                       #creates a new 'DateOnly' column that contains only the date part of the datetime, excluding the time
 
-    return news_df
+    return stknews_df
+
+def sentiment_data_processor(stknews_df):
+    grp_stknews_df = stknews_df.groupby(['DateOnly', 'sentiment']).size().unstack(fill_value=0)                             #groups the data by date and sentiment, count occurrences, and unstacks the result
+    grp_stknews_df = grp_stknews_df.reindex(columns=['POSITIVE', 'NEGATIVE'], fill_value=0)                                 #'POSITIVE' and 'NEGATIVE' columns exist and empty columns fill with 0 if missing
+
+    grp_stknews_df['7DAY_AVG_POS'] = grp_stknews_df['POSITIVE'].rolling(window=7, min_periods=1).sum()                      #calc 7-day rolling sum for pos sentiments
+    grp_stknews_df['7DAY_AVG_NEG'] = grp_stknews_df['NEGATIVE'].rolling(window=7, min_periods=1).sum()                      #7-day rolling sum for neg sentiments
+
+    grp_stknews_df['7DAY_POS_PCT'] = grp_stknews_df['POSITIVE'] / (grp_stknews_df['POSITIVE'] + grp_stknews_df['NEGATIVE']) #calc the % of pos sentiments for each day
+    final_grp_stknews_df = grp_stknews_df.reset_index()                                                                     #reset the index to make 'DateOnly' a column instead of an index
+    
+    return final_grp_stknews_df
+
+
